@@ -1,49 +1,26 @@
-# 🚀 MEGATRON PRECISION BOT
+# 🤖 Bot Trading Binance
 
-### Desenvolvido por Marcos Duarte — Desenvolvedor Sênior
+Bot automatizado para operar na Binance usando indicadores técnicos (RSI + EMA) e gerenciamento de risco (Take Profit/Stop Loss).
 
----
+## 🚀 Funcionalidades
 
-## 🧠 Estratégia
+- ✅ Conexão com API da Binance
+- ✅ Modo simulação para testes seguros
+- ✅ Análise técnica com RSI e EMA
+- ✅ Gerenciamento de risco automático
+- ✅ Banco de dados SQLite para histórico
+- ✅ Estatísticas em tempo real
+- ✅ Rate limiting para evitar bloqueios
 
-* EMA 9 / EMA 21
-* RSI (força do mercado)
-* Volume alto
-* Filtro anti pump
+## 📦 Instalação
 
----
+```bash
+# Clone o repositório
+git clone seu-repositorio
 
-## 💰 Execução
+# Instale as dependências
+pip install -r requirements.txt
 
-* Compra automática
-* Stop Loss
-* Take Profit
-* Trailing Stop
-
----
-
-## ☁️ Deploy
-
-### GitHub + Render
-
-1. Subir projeto
-2. Conectar no Render
-3. Usar render.yaml
-4. Configurar variáveis:
-
-CMC_API
-BINANCE_KEY
-BINANCE_SECRET
-
----
-
-## ⚠️ Aviso
-
-Trading envolve risco. Use com responsabilidade.
-
----
-
-## 👨‍💻 Autor
-
-Marcos Duarte
-Desenvolvedor Sênior
+# Configure as variáveis de ambiente
+cp .env.example .env
+# Edite o .env com suas chaves da Binance
