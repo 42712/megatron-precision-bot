@@ -3,22 +3,25 @@ from config import *
 from database import salvar_trade
 import time
 
-# 🔥 CONFIGURAÇÃO DA BINANCE (AJUSTADA)
+# 🔥 CLIENTE BINANCE (TESTNET - SEM BLOQUEIO)
 client = Client(
     BINANCE_KEY,
     BINANCE_SECRET,
-    tld='com',
-    testnet=False  # ⚠️ Se der erro, mudar para True
+    testnet=True
 )
 
 def get_preco(symbol):
-    return float(client.get_symbol_ticker(symbol=symbol)["price"])
+    try:
+        return float(client.get_symbol_ticker(symbol=symbol)["price"])
+    except Exception as e:
+        print(f"❌ Erro ao pegar preço: {e}")
+        return 0
 
 def comprar(symbol):
     try:
         print(f"🟢 Comprando {symbol}...")
 
-        order = client.order_market_buy(
+        client.order_market_buy(
             symbol=symbol,
             quoteOrderQty=VALOR_COMPRA
         )
@@ -60,6 +63,10 @@ def monitorar(symbol, preco_compra):
     while True:
         try:
             preco = get_preco(symbol)
+
+            if preco == 0:
+                time.sleep(5)
+                continue
 
             if preco > topo:
                 topo = preco
