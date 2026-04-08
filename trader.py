@@ -1,96 +1,75 @@
-from binance.client import Client
-from config import *
-from database import salvar_trade
 import time
+from database import salvar_trade
+from config import *
 
-# 🔥 CLIENTE BINANCE (TESTNET - SEM BLOQUEIO)
-client = Client(
-    BINANCE_KEY,
-    BINANCE_SECRET,
-    testnet=True
-)
+# 💰 SIMULAÇÃO DE SALDO
+saldo = 100
+ativos = {}
 
-def get_preco(symbol):
-    try:
-        return float(client.get_symbol_ticker(symbol=symbol)["price"])
-    except Exception as e:
-        print(f"❌ Erro ao pegar preço: {e}")
-        return 0
+def get_preco_fake(symbol):
+    import random
+    return random.uniform(0.5, 1.5)
 
 def comprar(symbol):
-    try:
-        print(f"🟢 Comprando {symbol}...")
+    global saldo
 
-        client.order_market_buy(
-            symbol=symbol,
-            quoteOrderQty=VALOR_COMPRA
-        )
+    if saldo < VALOR_COMPRA:
+        print("❌ Saldo insuficiente")
+        return
 
-        preco_compra = get_preco(symbol)
-        print(f"✅ Compra feita: {preco_compra}")
+    preco = get_preco_fake(symbol)
+    qtd = VALOR_COMPRA / preco
 
-        monitorar(symbol, preco_compra)
+    ativos[symbol] = {
+        "preco_compra": preco,
+        "qtd": qtd
+    }
 
-    except Exception as e:
-        print(f"❌ Erro ao comprar {symbol}: {e}")
+    saldo -= VALOR_COMPRA
 
-def vender(symbol, preco_compra):
-    try:
-        asset = symbol.replace("USDT", "")
-        balance = client.get_asset_balance(asset=asset)
+    print(f"🟢 COMPRA SIMULADA: {symbol} a {preco:.4f}")
+    monitorar(symbol)
 
-        qtd = float(balance["free"])
+def vender(symbol):
+    global saldo
 
-        if qtd > 0:
-            client.order_market_sell(
-                symbol=symbol,
-                quantity=qtd
-            )
+    if symbol not in ativos:
+        return
 
-            preco_venda = get_preco(symbol)
-            print(f"🔴 Venda realizada: {preco_venda}")
+    preco = get_preco_fake(symbol)
+    dados = ativos[symbol]
 
-            salvar_trade(symbol, preco_compra, preco_venda)
+    valor = preco * dados["qtd"]
+    lucro = valor - VALOR_COMPRA
 
-    except Exception as e:
-        print(f"❌ Erro ao vender {symbol}: {e}")
+    saldo += valor
 
-def monitorar(symbol, preco_compra):
+    print(f"🔴 VENDA SIMULADA: {symbol} a {preco:.4f}")
+    print(f"💰 Lucro: {lucro:.2f}")
+
+    salvar_trade(symbol, dados["preco_compra"], preco)
+
+    del ativos[symbol]
+
+def monitorar(symbol):
+    dados = ativos[symbol]
+    preco_compra = dados["preco_compra"]
     topo = preco_compra
 
-    print(f"📊 Monitorando {symbol}...")
-
     while True:
-        try:
-            preco = get_preco(symbol)
+        preco = get_preco_fake(symbol)
 
-            if preco == 0:
-                time.sleep(5)
-                continue
+        if preco > topo:
+            topo = preco
 
-            if preco > topo:
-                topo = preco
+        if preco >= preco_compra * TAKE_PROFIT:
+            print("💰 Take Profit")
+            vender(symbol)
+            break
 
-            # 🎯 TAKE PROFIT
-            if preco >= preco_compra * TAKE_PROFIT:
-                print("💰 Take Profit atingido")
-                vender(symbol, preco_compra)
-                break
+        if preco <= preco_compra * STOP_LOSS:
+            print("🛑 Stop Loss")
+            vender(symbol)
+            break
 
-            # 🛑 STOP LOSS
-            if preco <= preco_compra * STOP_LOSS:
-                print("🛑 Stop Loss acionado")
-                vender(symbol, preco_compra)
-                break
-
-            # 📉 TRAILING STOP
-            if preco < topo * (1 - TRAILING):
-                print("📉 Trailing Stop acionado")
-                vender(symbol, preco_compra)
-                break
-
-            time.sleep(5)
-
-        except Exception as e:
-            print(f"⚠️ Erro no monitoramento: {e}")
-            time.sleep(5)
+        if preco
