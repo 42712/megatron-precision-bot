@@ -1,6 +1,22 @@
 services:
   - type: worker
-    name: megatron-precision-bot
+    name: binance-trading-bot
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python main.py"
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
+    startCommand: python main.py
+    plan: free
+    envVars:
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_SECRET_KEY
+        sync: false
+      - key: MODO_TESTE
+        value: "True"
+      - key: VALOR_COMPRA
+        value: "50"
+      - key: TAKE_PROFIT
+        value: "1.05"
+      - key: STOP_LOSS
+        value: "0.98"
+      - key: PYTHON_VERSION
+        value: "3.11.4"
