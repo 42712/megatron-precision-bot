@@ -1,4 +1,4 @@
-requests
-python-binance
-numpy
-flask
+python-binance==1.0.19
+python-dotenv==1.0.0
+requests==2.31.0
+numpy==1.24.3
