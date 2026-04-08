@@ -1,213 +1,161 @@
+"""
+Módulo de Execução de Trades
+"""
 import time
-import random
-from database import salvar_trade
 from config import *
+from database import salvar_trade, salvar_saldo
 from binance.client import Client
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 
 # ============================================
-# 🔐 CONEXÃO REAL COM A BINANCE
+# CONEXÃO COM A BINANCE
 # ============================================
-try:
-    client = Client(BINANCE_API_KEY, BINANCE_SECRET_KEY)
-    # Testa conexão
-    status = client.get_system_status()
-    print("✅ Conectado à Binance")
-except Exception as e:
-    print(f"❌ Erro de conexão: {e}")
-    exit(1)
-
-# ============================================
-# 💰 CONFIGURAÇÕES
-# ============================================
-saldo = 100
-ativos = {}
-
-# Controle de rate limiting (evita bloqueio)
-ULTIMA_REQUISICAO = 0
-MIN_INTERVALO = 0.1  # 100ms entre requisições (10 por segundo)
-
-# ============================================
-# 🛡️ FUNÇÃO ANTI-BLOQUEIO
-# ============================================
-def aguardar_rate_limit():
-    """Respeita os limites da Binance para não ser bloqueado"""
-    global ULTIMA_REQUISICAO
-    agora = time.time()
-    tempo_decorrido = agora - ULTIMA_REQUISICAO
-    if tempo_decorrido < MIN_INTERVALO:
-        time.sleep(MIN_INTERVALO - tempo_decorrido)
-    ULTIMA_REQUISICAO = time.time()
-
-def get_preco_real(symbol):
-    """Obtém preço real da Binance com retry automático"""
-    for tentativa in range(3):  # 3 tentativas
+class Trader:
+    def __init__(self):
+        self.client = None
+        self.saldo = SALDO_INICIAL
+        self.ativos = {}
+        self.ultima_requisicao = 0
+        
+        if not MODO_TESTE:
+            self.conectar_binance()
+    
+    def conectar_binance(self):
+        """Conecta à API da Binance"""
         try:
-            aguardar_rate_limit()
-            
-            # Formata o símbolo corretamente (ex: "BTCUSDT")
-            symbol_formatted = symbol.replace("/", "").upper()
-            
-            ticker = client.get_symbol_ticker(symbol=symbol_formatted)
-            preco = float(ticker['price'])
-            print(f"📊 {symbol}: R$ {preco:.4f}")
-            return preco
-            
-        except BinanceAPIException as e:
-            if e.code == -1003:  # Rate limit excedido
-                print(f"⏳ Rate limit, aguardando 1s... (tentativa {tentativa+1}/3)")
-                time.sleep(1)
-            else:
-                print(f"⚠️ Erro Binance: {e}")
-                return None
-        except BinanceRequestException as e:
-            print(f"⚠️ Erro de rede: {e}")
-            time.sleep(0.5)
+            self.client = Client(BINANCE_API_KEY, BINANCE_SECRET_KEY)
+            status = self.client.get_system_status()
+            print("✅ Conectado à Binance")
+            return True
         except Exception as e:
-            print(f"⚠️ Erro inesperado: {e}")
-            return None
+            print(f"❌ Erro de conexão: {e}")
+            return False
     
-    print("❌ Falha ao obter preço após 3 tentativas")
-    return None
-
-# ============================================
-# 🚀 FUNÇÕES DE EXECUÇÃO REAL
-# ============================================
-def comprar(symbol):
-    global saldo
+    def aguardar_rate_limit(self):
+        """Respeita os limites da API"""
+        agora = time.time()
+        tempo_decorrido = agora - self.ultima_requisicao
+        if tempo_decorrido < MIN_INTERVALO:
+            time.sleep(MIN_INTERVALO - tempo_decorrido)
+        self.ultima_requisicao = time.time()
     
-    if saldo < VALOR_COMPRA:
-        print(f"❌ Saldo insuficiente: R$ {saldo:.2f}")
-        return
+    def get_preco(self, symbol):
+        """Obtém preço atual"""
+        if MODO_TESTE or not self.client:
+            # Simulação
+            import random
+            preco_base = {
+                "BTC/USDT": 50000,
+                "ETH/USDT": 3000,
+                "BNB/USDT": 400
+            }.get(symbol, 100)
+            
+            variacao = random.uniform(-0.02, 0.02)
+            preco = preco_base * (1 + variacao)
+            print(f"📊 {symbol} (SIM): R$ {preco:.2f}")
+            return preco
+        
+        # Modo real
+        for tentativa in range(3):
+            try:
+                self.aguardar_rate_limit()
+                symbol_formatted = symbol.replace("/", "").upper()
+                ticker = self.client.get_symbol_ticker(symbol=symbol_formatted)
+                return float(ticker['price'])
+            except BinanceAPIException as e:
+                if e.code == -1003:
+                    print(f"⏳ Rate limit ({tentativa+1}/3)")
+                    time.sleep(1)
+                else:
+                    print(f"⚠️ Erro: {e}")
+                    return None
+            except Exception as e:
+                print(f"⚠️ Erro: {e}")
+                time.sleep(0.5)
+        return None
     
-    preco = get_preco_real(symbol)
-    if not preco:
-        return
-    
-    # CALCULA QUANTIDADE REAL (respeitando lotes mínimos da Binance)
-    qtd = VALOR_COMPRA / preco
-    
-    # OPÇÃO 1: APENAS SIMULAÇÃO (sem ordem real)
-    print(f"\n🟢 ORDEM DE COMPRA SIMULADA:")
-    print(f"   Símbolo: {symbol}")
-    print(f"   Preço: R$ {preco:.4f}")
-    print(f"   Quantidade: {qtd:.6f}")
-    print(f"   Valor: R$ {VALOR_COMPRA:.2f}")
-    
-    # OPÇÃO 2: ORDEM REAL (descomente para usar dinheiro de verdade)
-    """
-    try:
-        aguardar_rate_limit()
-        order = client.order_market_buy(
-            symbol=symbol.replace("/", "").upper(),
-            quantity=round(qtd, 6)  # Ajustar casas decimais
-        )
-        print(f"✅ ORDEM REAL EXECUTADA: {order}")
-        preco = float(order['fills'][0]['price'])
-    except Exception as e:
-        print(f"❌ Erro na ordem real: {e}")
-        return
-    """
-    
-    # Registra o ativo
-    ativos[symbol] = {
-        "preco_compra": preco,
-        "qtd": qtd,
-        "topo": preco
-    }
-    
-    saldo -= VALOR_COMPRA
-    print(f"💼 Saldo restante: R$ {saldo:.2f}")
-    
-    # Inicia monitoramento
-    monitorar(symbol)
-
-def vender(symbol):
-    global saldo
-    
-    if symbol not in ativos:
-        return
-    
-    preco = get_preco_real(symbol)
-    if not preco:
-        return
-    
-    dados = ativos[symbol]
-    valor = preco * dados["qtd"]
-    lucro = valor - VALOR_COMPRA
-    lucro_percentual = (lucro / VALOR_COMPRA) * 100
-    
-    # OPÇÃO 2: ORDEM REAL (descomente para usar dinheiro de verdade)
-    """
-    try:
-        aguardar_rate_limit()
-        order = client.order_market_sell(
-            symbol=symbol.replace("/", "").upper(),
-            quantity=round(dados["qtd"], 6)
-        )
-        print(f"✅ VENDA REAL EXECUTADA")
-    except Exception as e:
-        print(f"❌ Erro na venda real: {e}")
-        return
-    """
-    
-    saldo += valor
-    
-    print(f"\n🔴 VENDA SIMULADA: {symbol}")
-    print(f"   Preço compra: R$ {dados['preco_compra']:.4f}")
-    print(f"   Preço venda: R$ {preco:.4f}")
-    print(f"   Lucro: R$ {lucro:.2f} ({lucro_percentual:.2f}%)")
-    print(f"   Saldo atual: R$ {saldo:.2f}")
-    
-    # Salva no banco de dados
-    salvar_trade(symbol, dados["preco_compra"], preco)
-    
-    del ativos[symbol]
-
-def monitorar(symbol):
-    dados = ativos[symbol]
-    preco_compra = dados["preco_compra"]
-    topo = dados["topo"]
-    
-    print(f"\n🔍 Monitorando {symbol}...")
-    print(f"   Preço compra: R$ {preco_compra:.4f}")
-    print(f"   Take Profit: R$ {preco_compra * TAKE_PROFIT:.4f}")
-    print(f"   Stop Loss: R$ {preco_compra * STOP_LOSS:.4f}")
-    
-    while True:
-        preco = get_preco_real(symbol)
+    def comprar(self, symbol):
+        """Executa compra"""
+        if self.saldo < VALOR_COMPRA:
+            print(f"❌ Saldo insuficiente: R$ {self.saldo:.2f}")
+            return False
+        
+        preco = self.get_preco(symbol)
         if not preco:
-            time.sleep(1)
-            continue
+            return False
         
-        # Atualiza topo
-        if preco > topo:
-            topo = preco
-            print(f"📈 Novo topo: R$ {topo:.4f}")
+        qtd = VALOR_COMPRA / preco
         
-        # Verifica condições
-        if preco >= preco_compra * TAKE_PROFIT:
-            print(f"💰 Take Profit atingido!")
-            vender(symbol)
-            break
+        print(f"\n🟢 COMPRA: {symbol} @ R$ {preco:.4f}")
+        print(f"   Quantidade: {qtd:.6f} | Valor: R$ {VALOR_COMPRA:.2f}")
         
-        if preco <= preco_compra * STOP_LOSS:
-            print(f"🛑 Stop Loss atingido!")
-            vender(symbol)
-            break
+        # Modo real (descomente para usar)
+        if not MODO_TESTE and self.client:
+            try:
+                self.aguardar_rate_limit()
+                order = self.client.order_market_buy(
+                    symbol=symbol.replace("/", "").upper(),
+                    quantity=round(qtd, 6)
+                )
+                preco = float(order['fills'][0]['price'])
+                print(f"✅ ORDEM REAL EXECUTADA")
+            except Exception as e:
+                print(f"❌ Erro: {e}")
+                return False
         
-        # Aguarda próximo ciclo
-        time.sleep(1)  # Verifica a cada 1 segundo
+        self.ativos[symbol] = {
+            "preco_compra": preco,
+            "qtd": qtd,
+            "topo": preco
+        }
+        
+        self.saldo -= VALOR_COMPRA
+        print(f"💼 Saldo: R$ {self.saldo:.2f}")
+        return True
+    
+    def vender(self, symbol, motivo="TP/SL"):
+        """Executa venda"""
+        if symbol not in self.ativos:
+            return False
+        
+        preco = self.get_preco(symbol)
+        if not preco:
+            return False
+        
+        dados = self.ativos[symbol]
+        valor = preco * dados["qtd"]
+        lucro = valor - VALOR_COMPRA
+        lucro_percentual = (lucro / VALOR_COMPRA) * 100
+        
+        print(f"\n🔴 VENDA ({motivo}): {symbol} @ R$ {preco:.4f}")
+        print(f"   Lucro: R$ {lucro:.2f} ({lucro_percentual:+.2f}%)")
+        
+        # Modo real (descomente para usar)
+        if not MODO_TESTE and self.client:
+            try:
+                self.aguardar_rate_limit()
+                order = self.client.order_market_sell(
+                    symbol=symbol.replace("/", "").upper(),
+                    quantity=round(dados["qtd"], 6)
+                )
+                print(f"✅ VENDA REAL EXECUTADA")
+            except Exception as e:
+                print(f"❌ Erro: {e}")
+                return False
+        
+        self.saldo += valor
+        
+        # Salva no banco
+        salvar_trade(symbol, dados["preco_compra"], preco, dados["qtd"])
+        salvar_saldo(self.saldo)
+        
+        del self.ativos[symbol]
+        return True
+    
+    def get_saldo(self):
+        return self.saldo
+    
+    def get_posicoes(self):
+        return self.ativos
 
-# ============================================
-# 🚀 MAIN
-# ============================================
-if __name__ == "__main__":
-    print("=== BOT TRADING BINANCE ===\n")
-    
-    # Exemplo de uso
-    comprar("BTC/USDT")
-    
-    # Mantém o bot rodando
-    while True:
-        time.sleep(1)
+print("✅ Módulo Trader carregado com sucesso!")
