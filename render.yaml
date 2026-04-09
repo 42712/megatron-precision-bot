@@ -1,7 +1,7 @@
 services:
   - type: worker
-    name: megatron-bot
-    runtime: python
+    name: megatron-precision-bot
+    env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
     envVars:
