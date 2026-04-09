@@ -1,22 +1,28 @@
 services:
   - type: worker
-    name: binance-trading-bot
+    name: megatron-precision-bot
     env: python
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python main.py
     plan: free
     envVars:
       - key: BINANCE_API_KEY
-        sync: false
+        sync: false          # Você preenche manualmente no painel do Render
       - key: BINANCE_SECRET_KEY
-        sync: false
+        sync: false          # Você preenche manualmente no painel do Render
       - key: MODO_TESTE
-        value: "True"
+        value: "True"        # Mude para "False" para operar com dinheiro real
       - key: VALOR_COMPRA
         value: "50"
       - key: TAKE_PROFIT
         value: "1.05"
       - key: STOP_LOSS
         value: "0.98"
+      - key: SALDO_INICIAL
+        value: "100"
+      - key: MIN_INTERVALO
+        value: "0.5"         # 500ms entre requisições (seguro para Binance)
+      - key: DELAY_ENTRE_PARES
+        value: "2.0"         # 2s entre análise de cada par
       - key: PYTHON_VERSION
         value: "3.11.8"
