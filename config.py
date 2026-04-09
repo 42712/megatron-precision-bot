@@ -4,38 +4,40 @@ Configurações do Bot Trading Binance
 import os
 from dotenv import load_dotenv
 
-# Carrega variáveis do arquivo .env
 load_dotenv()
 
 # ============================================
 # 🔐 CONFIGURAÇÕES DA BINANCE
 # ============================================
-BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "sua_api_key_aqui")
-BINANCE_SECRET_KEY = os.getenv("BINANCE_SECRET_KEY", "sua_secret_key_aqui")
+BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
+BINANCE_SECRET_KEY = os.getenv("BINANCE_SECRET_KEY", "")
 
 # ============================================
 # ⚙️ CONFIGURAÇÕES DA ESTRATÉGIA
 # ============================================
-VALOR_COMPRA = 50.0          # R$ 50 por operação
-TAKE_PROFIT = 1.05           # 5% de lucro
-STOP_LOSS = 0.98             # 2% de perda
+VALOR_COMPRA = float(os.getenv("VALOR_COMPRA", "50.0"))
+TAKE_PROFIT = float(os.getenv("TAKE_PROFIT", "1.05"))
+STOP_LOSS = float(os.getenv("STOP_LOSS", "0.98"))
 
 # ============================================
-# 🔧 CONFIGURAÇÕES ADICIONAIS
+# 🔧 CONFIGURAÇÕES GERAIS
 # ============================================
-MODO_TESTE = True            # True = simulação, False = operações reais
-SALDO_INICIAL = 100.0        # Saldo inicial simulado
-MIN_INTERVALO = 0.1          # 100ms entre requisições (evita bloqueio)
+MODO_TESTE = os.getenv("MODO_TESTE", "True").lower() in ("true", "1", "yes")
+SALDO_INICIAL = float(os.getenv("SALDO_INICIAL", "100.0"))
 
 # ============================================
-# 📊 API COINMARKETCAP (opcional)
+# ⏱️ RATE LIMITING — valores seguros para Binance
 # ============================================
-CMC_API = os.getenv("CMC_API", "")
+# Binance permite 1200 "pesos" por minuto.
+# get_symbol_ticker = peso 1. Cada ordem = peso 1.
+# Com 3 pares x várias chamadas, mínimo seguro = 0.5s entre requisições.
+MIN_INTERVALO = float(os.getenv("MIN_INTERVALO", "0.5"))   # 500ms (era 100ms — muito rápido!)
+DELAY_ENTRE_PARES = float(os.getenv("DELAY_ENTRE_PARES", "2.0"))  # 2s entre pares
 
 # ============================================
 # 🎯 PARES PARA OPERAR
 # ============================================
-PARES = ["BTC/USDT", "ETH/USDT", "BNB/USDT"]
+PARES = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]  # Formato correto da Binance (sem "/")
 
 # ============================================
 # 📈 INDICADORES TÉCNICOS
