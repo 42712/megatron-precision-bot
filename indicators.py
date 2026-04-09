@@ -1,90 +1,80 @@
 """
-Indicadores Técnicos para análise de mercado (SEM numpy)
+Módulo de Indicadores Técnicos — RSI + EMA
 """
-from config import RSI_PERIOD, EMA_FAST, EMA_SLOW, RSI_OVERBOUGHT, RSI_OVERSOLD
+from config import RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD, EMA_FAST, EMA_SLOW
 
-def calcular_rsi(precos, periodo=14):
-    """Calcula RSI sem numpy"""
+
+def calcular_ema(precos, periodo):
+    """Calcula EMA (Exponential Moving Average)"""
+    if len(precos) < periodo:
+        return precos[-1] if precos else 0
+
+    k = 2 / (periodo + 1)
+    ema = sum(precos[:periodo]) / periodo  # SMA inicial
+    for preco in precos[periodo:]:
+        ema = preco * k + ema * (1 - k)
+    return round(ema, 6)
+
+
+def calcular_rsi(precos, periodo=RSI_PERIOD):
+    """Calcula RSI (Relative Strength Index)"""
     if len(precos) < periodo + 1:
-        return 50.0
-    
-    ganhos = 0.0
-    perdas = 0.0
-    
-    for i in range(1, periodo + 1):
-        diferenca = precos[-i] - precos[-i-1]
-        if diferenca > 0:
-            ganhos += diferenca
-        else:
-            perdas += abs(diferenca)
-    
-    if perdas == 0:
-        return 100.0
-    
-    rs = ganhos / perdas
+        return 50  # neutro enquanto coleta dados
+
+    deltas = [precos[i] - precos[i - 1] for i in range(1, len(precos))]
+    ganhos = [d for d in deltas if d > 0]
+    perdas = [-d for d in deltas if d < 0]
+
+    if not perdas:
+        return 100
+    if not ganhos:
+        return 0
+
+    media_ganho = sum(ganhos[-periodo:]) / periodo
+    media_perda = sum(perdas[-periodo:]) / periodo
+
+    if media_perda == 0:
+        return 100
+
+    rs = media_ganho / media_perda
     rsi = 100 - (100 / (1 + rs))
     return round(rsi, 2)
 
-def calcular_ema(precos, periodo=9):
-    """Calcula EMA sem numpy"""
-    if len(precos) < periodo:
-        return precos[-1] if precos else 0.0
-    
-    multiplicador = 2 / (periodo + 1)
-    ema = sum(precos[-periodo:]) / periodo  # SMA inicial
-    
-    for preco in precos[-periodo+1:]:
-        ema = (preco - ema) * multiplicador + ema
-    
-    return round(ema, 2)
 
-def calcular_sma(precos, periodo=20):
-    """Calcula SMA sem numpy"""
-    if len(precos) < periodo:
-        return precos[-1] if precos else 0.0
-    
-    return round(sum(precos[-periodo:]) / periodo, 2)
+def analisar_mercado(precos):
+    """
+    Analisa o mercado usando RSI + EMA crossover.
 
-def gerar_sinal(rsi, ema_fast, ema_slow):
-    """Gera sinal baseado nos indicadores"""
-    if rsi < RSI_OVERSOLD and ema_fast > ema_slow:
-        return "COMPRA"
-    elif rsi > RSI_OVERBOUGHT and ema_fast < ema_slow:
-        return "VENDA"
-    return "NEUTRO"
+    Returns:
+        dict: rsi, ema_fast, ema_slow, tendencia, sinal
+    """
+    rsi = calcular_rsi(precos)
+    ema_fast = calcular_ema(precos, EMA_FAST)
+    ema_slow = calcular_ema(precos, EMA_SLOW)
 
-def analisar_mercado(historico_precos):
-    """Análise completa do mercado"""
-    if len(historico_precos) < max(RSI_PERIOD, EMA_SLOW):
-        return {
-            'rsi': 50.0,
-            'ema_fast': historico_precos[-1] if historico_precos else 0.0,
-            'ema_slow': historico_precos[-1] if historico_precos else 0.0,
-            'sma': historico_precos[-1] if historico_precos else 0.0,
-            'sinal': 'NEUTRO',
-            'tendencia': 'DADOS_INSUFICIENTES'
-        }
-    
-    rsi = calcular_rsi(historico_precos, RSI_PERIOD)
-    ema_fast = calcular_ema(historico_precos, EMA_FAST)
-    ema_slow = calcular_ema(historico_precos, EMA_SLOW)
-    sma = calcular_sma(historico_precos, 20)
-    sinal = gerar_sinal(rsi, ema_fast, ema_slow)
-    
+    # Tendência baseada nas EMAs
     if ema_fast > ema_slow:
-        tendencia = "ALTA"
+        tendencia = "ALTA 📈"
     elif ema_fast < ema_slow:
-        tendencia = "BAIXA"
+        tendencia = "BAIXA 📉"
     else:
-        tendencia = "LATERAL"
-    
+        tendencia = "LATERAL ↔️"
+
+    # Sinal combinado: RSI + EMA
+    if rsi < RSI_OVERSOLD and ema_fast > ema_slow:
+        sinal = "COMPRA"
+    elif rsi > RSI_OVERBOUGHT and ema_fast < ema_slow:
+        sinal = "VENDA"
+    else:
+        sinal = "NEUTRO"
+
     return {
-        'rsi': rsi,
-        'ema_fast': ema_fast,
-        'ema_slow': ema_slow,
-        'sma': sma,
-        'sinal': sinal,
-        'tendencia': tendencia
+        "rsi": rsi,
+        "ema_fast": ema_fast,
+        "ema_slow": ema_slow,
+        "tendencia": tendencia,
+        "sinal": sinal
     }
 
-print("✅ Indicadores carregados com sucesso (versão sem numpy)!")
+
+print("✅ Módulo Indicators carregado com sucesso!")
