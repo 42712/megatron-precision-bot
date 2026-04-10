@@ -1,114 +1,97 @@
 """
-Bot de Trading Binance - Main Entry Point
+Bot de Trading Binance - Versão Web Service (Keep Alive)
 """
 import time
 import sys
 from datetime import datetime
+from flask import Flask, jsonify
+from threading import Thread
 from config import MODO_TESTE, PARES, VALOR_COMPRA, TAKE_PROFIT, STOP_LOSS, SALDO_INICIAL
 from database import get_estatisticas
 from trader import Trader
 from analyzer import Analyzer
 
+app = Flask(__name__)
+trader = Trader()
+analyzer = Analyzer(trader)
+bot_ativo = True
 
 # ============================================
-# FUNÇÕES DE INTERFACE
+# ROTAS WEB
 # ============================================
-def mostrar_banner():
-    print("""
-    ╔═══════════════════════════════════════╗
-    ║   MEGATRON PRECISION BOT v1.1         ║
-    ║   Estratégia: RSI + EMA + TP/SL       ║
-    ╚═══════════════════════════════════════╝
-    """)
 
-def mostrar_config():
-    print(f"📌 Modo: {'🔵 SIMULAÇÃO' if MODO_TESTE else '🔴 REAL'}")
-    print(f"🎯 Pares: {', '.join(PARES)}")
-    print(f"💰 Valor por operação: ${VALOR_COMPRA:.2f}")
-    print(f"📈 Take Profit: +{(TAKE_PROFIT-1)*100:.1f}%")
-    print(f"📉 Stop Loss: -{(1-STOP_LOSS)*100:.1f}%")
-    print(f"💾 Banco de dados: trades.db\n")
+@app.route('/')
+def home():
+    return jsonify({
+        'status': 'online',
+        'bot': 'MEGATRON PRECISION BOT',
+        'modo': 'SIMULAÇÃO' if MODO_TESTE else 'REAL',
+        'pares': PARES,
+        'saldo': trader.get_saldo(),
+        'posicoes': len(trader.get_posicoes())
+    })
 
-def mostrar_status(trader, analyzer):
-    print("\n" + "="*50)
-    print(f"📊 STATUS — {datetime.now().strftime('%H:%M:%S')}")
-    print(f"💰 Saldo: ${trader.get_saldo():.2f}")
-    print(f"📈 Posições abertas: {len(trader.get_posicoes())}")
-
-    for sym, dados in trader.get_posicoes().items():
-        preco_atual = trader.get_preco(sym)
-        if preco_atual:
-            lucro_pct = ((preco_atual / dados['preco_compra']) - 1) * 100
-            print(f"   {sym}: {lucro_pct:+.2f}%")
-
+@app.route('/status')
+def status():
     stats = get_estatisticas()
-    if stats:
-        print(f"\n📊 ESTATÍSTICAS:")
-        print(f"   Total trades: {stats['total_trades']}")
-        print(f"   Lucro total: ${stats['lucro_total']}")
-        print(f"   Taxa de acerto: {stats['taxa_acerto']}%")
-
-    print("="*50)
-
-def executar_estrategia(trader, analyzer):
-    print("\n🔍 Analisando mercado...")
-    resultados = analyzer.monitorar_todos()
-
-    for par, analise in resultados:
-        if analise['acao'] == 'COMPRA':
-            print(f"\n🚀 SINAL DE COMPRA — {par}!")
-            print(f"   Motivo: {analise['motivo']}")
-            trader.comprar(par)
-
-        elif analise['acao'] == 'VENDA':
-            print(f"\n📉 SINAL DE VENDA — {par}!")
-            print(f"   Motivo: {analise['motivo']}")
-            trader.vender(par, analise['motivo'])
-
+    return jsonify({
+        'saldo': trader.get_saldo(),
+        'posicoes': trader.get_posicoes(),
+        'estatisticas': stats,
+        'timestamp': datetime.now().isoformat()
+    })
 
 # ============================================
-# MAIN
+# LOOP DO BOT
 # ============================================
-def main():
-    mostrar_banner()
-    mostrar_config()
 
-    trader = Trader()
-    analyzer = Analyzer(trader)
-
-    print("✅ Bot iniciado com sucesso!")
-    print("⚠️  Pressione Ctrl+C para parar\n")
-
+def bot_loop():
+    """Loop principal do trading"""
+    global bot_ativo
     contador = 0
-
-    try:
-        while True:
+    
+    while bot_ativo:
+        try:
             if contador % 10 == 0:
-                mostrar_status(trader, analyzer)
+                print("\n" + "="*50)
+                print(f"📊 STATUS — {datetime.now().strftime('%H:%M:%S')}")
+                print(f"💰 Saldo: ${trader.get_saldo():.2f}")
+                print(f"📈 Posições abertas: {len(trader.get_posicoes())}")
 
-            executar_estrategia(trader, analyzer)
+            print("\n🔍 Analisando mercado...")
+            resultados = analyzer.monitorar_todos()
+
+            for par, analise in resultados:
+                if analise['acao'] == 'COMPRA':
+                    print(f"\n🚀 SINAL DE COMPRA — {par}!")
+                    trader.comprar(par)
+                elif analise['acao'] == 'VENDA':
+                    print(f"\n📉 SINAL DE VENDA — {par}!")
+                    trader.vender(par, analise['motivo'])
 
             print(f"\n⏳ Próxima análise em 30 segundos...")
             time.sleep(30)
             contador += 1
+            
+        except Exception as e:
+            print(f"❌ Erro no loop: {e}")
+            time.sleep(60)
 
-    except KeyboardInterrupt:
-        print("\n\n🛑 Bot interrompido pelo usuário")
-
-        if trader.get_posicoes():
-            print("🔒 Fechando posições abertas...")
-            for symbol in list(trader.get_posicoes().keys()):
-                trader.vender(symbol, "ENCERRAMENTO MANUAL")
-
-        mostrar_status(trader, analyzer)
-
-        saldo_final = trader.get_saldo()
-        resultado = saldo_final - SALDO_INICIAL  # ✅ SALDO_INICIAL agora importado corretamente
-        print(f"\n✅ Bot encerrado!")
-        print(f"💰 Saldo final: ${saldo_final:.2f}")
-        print(f"📈 Resultado: ${resultado:+.2f}")
-        sys.exit(0)
-
+# ============================================
+# MAIN
+# ============================================
 
 if __name__ == "__main__":
-    main()
+    print("""
+    ╔═══════════════════════════════════════╗
+    ║   MEGATRON PRECISION BOT v1.1         ║
+    ║   Rodando como Web Service            ║
+    ╚═══════════════════════════════════════╝
+    """)
+    
+    # Inicia o bot em thread separada
+    bot_thread = Thread(target=bot_loop, daemon=True)
+    bot_thread.start()
+    
+    # Sobe o servidor web (NUNCA termina)
+    app.run(host='0.0.0.0', port=10000)
