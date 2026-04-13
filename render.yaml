@@ -1,5 +1,5 @@
 services:
-  - type: web                  # ← WEB SERVICE (não worker!) — Flask precisa de porta aberta
+  - type: web
     name: megatron-precision-bot
     env: python
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
@@ -7,22 +7,51 @@ services:
     plan: free
     envVars:
       - key: BINANCE_API_KEY
-        sync: false            # Preencha manualmente no painel do Render
+        sync: false             # Preencha no painel do Render
       - key: BINANCE_SECRET_KEY
-        sync: false            # Preencha manualmente no painel do Render
+        sync: false             # Preencha no painel do Render
+
       - key: MODO_TESTE
-        value: "True"          # Mude para "False" para operar com dinheiro real
-      - key: VALOR_COMPRA
-        value: "50.0"
-      - key: TAKE_PROFIT
-        value: "1.05"
-      - key: STOP_LOSS
-        value: "0.98"
+        value: "True"           # Mude para False quando quiser operar de verdade
+
+      # ---- SALDO ----
       - key: SALDO_INICIAL
-        value: "100.0"
+        value: "15.0"           # Seu saldo em USDT (~R$87 no câmbio atual)
+
+      # ---- ESTRATÉGIA (tudo em %) ----
+      - key: PERCENTUAL_POR_OPERACAO
+        value: "0.20"           # 20% do saldo por operação
+
+      - key: TAKE_PROFIT_PCT
+        value: "0.05"           # Vende com +5% de lucro
+
+      - key: STOP_LOSS_PCT
+        value: "0.02"           # Vende com -2% de perda
+
+      - key: TRAILING_STOP_PCT
+        value: "0.015"          # Trailing: vende se cair 1.5% do topo
+
+      # ---- GESTÃO DE RISCO ----
+      - key: MAX_POSICOES
+        value: "2"              # Máximo 2 operações simultâneas
+
+      - key: MAX_PERDA_DIARIA_PCT
+        value: "0.15"           # Para o bot se perder 15% do saldo no dia
+
+      - key: SALDO_MINIMO_PCT
+        value: "0.30"           # Não opera se saldo cair abaixo de 30% do inicial
+
+      - key: COOLDOWN_APOS_STOP
+        value: "10"             # Ciclos bloqueados após stop loss (~5 min)
+
+      - key: MIN_CONFLUENCIA
+        value: "4"              # Mín 4/5 indicadores concordando para entrar
+
+      # ---- RATE LIMITING ----
       - key: MIN_INTERVALO
         value: "0.5"
       - key: DELAY_ENTRE_PARES
         value: "2.0"
+
       - key: PYTHON_VERSION
-        value: "3.11.8"        # Fixado em 3.11 — evita Python 3.14 com incompatibilidades
+        value: "3.11.8"
