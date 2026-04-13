@@ -1,16 +1,17 @@
 services:
-  - type: worker
+  - type: web                  # ← WEB SERVICE (não worker!) — Flask precisa de porta aberta
     name: megatron-precision-bot
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python main.py
+    plan: free
     envVars:
       - key: BINANCE_API_KEY
-        sync: false
+        sync: false            # Preencha manualmente no painel do Render
       - key: BINANCE_SECRET_KEY
-        sync: false
+        sync: false            # Preencha manualmente no painel do Render
       - key: MODO_TESTE
-        value: "True"
+        value: "True"          # Mude para "False" para operar com dinheiro real
       - key: VALOR_COMPRA
         value: "50.0"
       - key: TAKE_PROFIT
@@ -23,3 +24,5 @@ services:
         value: "0.5"
       - key: DELAY_ENTRE_PARES
         value: "2.0"
+      - key: PYTHON_VERSION
+        value: "3.11.8"        # Fixado em 3.11 — evita Python 3.14 com incompatibilidades
