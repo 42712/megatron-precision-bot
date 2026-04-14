@@ -3,6 +3,7 @@ Megatron Precision Bot v2.1 — Sistema Percentual
 """
 import time
 import threading
+import os
 from datetime import datetime
 from flask import Flask, jsonify
 from config import (
@@ -14,13 +15,10 @@ from database import get_estatisticas
 from trader import Trader
 from analyzer import Analyzer
 
-app     = Flask(__name__)
-trader  = Trader()
+app = Flask(__name__)
+trader = Trader()
 analyzer = Analyzer(trader)
 
-# ============================================
-# ROTAS
-# ============================================
 
 @app.route('/')
 def home():
@@ -30,77 +28,77 @@ def home():
         'modo': 'SIMULAÇÃO' if MODO_TESTE else 'REAL',
         'pares': PARES,
         'configuracao': {
-            'por_operacao':    f"{PERCENTUAL_POR_OPERACAO*100:.0f}% do saldo",
-            'take_profit':     f"+{TAKE_PROFIT_PCT*100:.1f}%",
-            'stop_loss':       f"-{STOP_LOSS_PCT*100:.1f}%",
-            'trailing_stop':   f"{TRAILING_STOP_PCT*100:.1f}% do topo",
-            'perda_diaria_max':f"{MAX_PERDA_DIARIA_PCT*100:.0f}% do saldo",
+            'por_operacao': f"{PERCENTUAL_POR_OPERACAO*100:.0f}% do saldo",
+            'take_profit': f"+{TAKE_PROFIT_PCT*100:.1f}%",
+            'stop_loss': f"-{STOP_LOSS_PCT*100:.1f}%",
+            'trailing_stop': f"{TRAILING_STOP_PCT*100:.1f}% do topo",
+            'perda_diaria_max': f"{MAX_PERDA_DIARIA_PCT*100:.0f}% do saldo",
             'confluencia_min': f"{MIN_CONFLUENCIA}/5 indicadores",
         },
         'hora': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     })
 
+
 @app.route('/status')
 def status():
     posicoes = trader.get_posicoes()
-    saldo    = trader.get_saldo()
+    saldo = trader.get_saldo()
     limite_perda = SALDO_INICIAL * MAX_PERDA_DIARIA_PCT
-    stats    = get_estatisticas()
+    stats = get_estatisticas()
     return jsonify({
-        'saldo_atual':      round(saldo, 4),
-        'saldo_inicial':    SALDO_INICIAL,
-        'resultado_total':  round(saldo - SALDO_INICIAL, 4),
-        'resultado_pct':    round(((saldo / SALDO_INICIAL) - 1) * 100, 2),
+        'saldo_atual': round(saldo, 4),
+        'saldo_inicial': SALDO_INICIAL,
+        'resultado_total': round(saldo - SALDO_INICIAL, 4),
+        'resultado_pct': round(((saldo / SALDO_INICIAL) - 1) * 100, 2),
         'posicoes_abertas': len(posicoes),
-        'bot_pausado':      analyzer.bot_pausado,
-        'perda_diaria':     round(analyzer.perda_diaria, 4),
+        'bot_pausado': analyzer.bot_pausado,
+        'perda_diaria': round(analyzer.perda_diaria, 4),
         'limite_perda_dia': round(limite_perda, 4),
-        'cooldowns':        analyzer.cooldown,
+        'cooldowns': analyzer.cooldown,
         'posicoes': {
             sym: {
                 'preco_entrada': dados['preco_compra'],
-                'quantidade':    round(dados['qtd'], 6),
-                'valor_invest':  round(dados['valor_investido'], 4),
-                'topo':          dados.get('topo', dados['preco_compra'])
+                'quantidade': round(dados['qtd'], 6),
+                'valor_invest': round(dados['valor_investido'], 4),
+                'topo': dados.get('topo', dados['preco_compra'])
             }
             for sym, dados in posicoes.items()
         },
         'estatisticas': stats
     })
 
+
 @app.route('/analise')
 def analise():
     resultado = {}
     for par in PARES:
-        precos  = list(analyzer.historico_precos[par])
+        precos = list(analyzer.historico_precos[par])
         volumes = list(analyzer.historico_volumes[par])
         if len(precos) >= 2:
             from indicators import calcular_confluencia
             a = calcular_confluencia(precos, volumes if volumes else None)
             resultado[par] = {
-                'preco':          precos[-1],
+                'preco': precos[-1],
                 'dados_coletados': len(precos),
-                'rsi':            a['rsi'],
-                'macd_hist':      a['macd_hist'],
-                'bb_pct':         a['bb_pct'],
-                'volume_ratio':   a['volume_ratio'],
-                'tendencia_maior':a['tendencia_maior'],
-                'pontos_compra':  a['pontos_compra'],
-                'pontos_venda':   a['pontos_venda'],
-                'sinal':          a['sinal'],
-                'faltam_dados':   a.get('faltam_dados', 0)
+                'rsi': a['rsi'],
+                'macd_hist': a['macd_hist'],
+                'bb_pct': a['bb_pct'],
+                'volume_ratio': a['volume_ratio'],
+                'tendencia_maior': a['tendencia_maior'],
+                'pontos_compra': a['pontos_compra'],
+                'pontos_venda': a['pontos_venda'],
+                'sinal': a['sinal'],
+                'faltam_dados': a.get('faltam_dados', 0)
             }
         else:
             resultado[par] = {'status': 'coletando', 'dados': len(precos)}
     return jsonify(resultado)
 
+
 @app.route('/health')
 def health():
     return jsonify({'ok': True}), 200
 
-# ============================================
-# LOOP DO BOT
-# ============================================
 
 def bot_loop():
     print("🤖 Bot TURBINADO v2.1 iniciado!")
@@ -116,7 +114,7 @@ def bot_loop():
             resultados = analyzer.monitorar_todos()
 
             for par, resultado in resultados:
-                acao   = resultado.get('acao')
+                acao = resultado.get('acao')
                 motivo = resultado.get('motivo', '')
 
                 if acao == 'COMPRA':
@@ -141,9 +139,6 @@ def bot_loop():
             print(f"❌ Erro no ciclo: {e}")
             time.sleep(60)
 
-# ============================================
-# ENTRY POINT
-# ============================================
 
 if __name__ == "__main__":
     print(f"""
@@ -164,6 +159,8 @@ if __name__ == "__main__":
 
     thread = threading.Thread(target=bot_loop, daemon=True)
     thread.start()
-    print("✅ Thread iniciada!")
+    print("✅ Thread do bot iniciada com sucesso!")
 
-    app.run(host='0.0.0.0', port=10000, debug=False)
+    # PORTA CORRIGIDA PARA O RENDER
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port, debug=False)
