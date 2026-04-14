@@ -17,11 +17,11 @@ from database import salvar_indicador
 class Analyzer:
     def __init__(self, trader):
         self.trader = trader
-        self.historico_precos  = {par: deque(maxlen=200) for par in PARES}
+        self.historico_precos = {par: deque(maxlen=200) for par in PARES}
         self.historico_volumes = {par: deque(maxlen=200) for par in PARES}
-        self.cooldown     = {par: 0 for par in PARES}
+        self.cooldown = {par: 0 for par in PARES}
         self.perda_diaria = 0.0
-        self.bot_pausado  = False
+        self.bot_pausado = False
 
     def registrar_resultado(self, lucro):
         if lucro < 0:
@@ -35,7 +35,7 @@ class Analyzer:
 
     def aplicar_cooldown(self, symbol):
         self.cooldown[symbol] = COOLDOWN_APOS_STOP
-        print(f"⏸️  {symbol} bloqueado por {COOLDOWN_APOS_STOP} ciclos (~{COOLDOWN_APOS_STOP//2} min)")
+        print(f"⏸️ {symbol} bloqueado por {COOLDOWN_APOS_STOP} ciclos")
 
     def atualizar_historico(self, symbol, preco, volume=None):
         if symbol in self.historico_precos:
@@ -50,7 +50,7 @@ class Analyzer:
             return {'acao': 'AGUARDAR', 'motivo': 'Preço indisponível'}
 
         self.atualizar_historico(symbol, preco_atual)
-        precos  = list(self.historico_precos[symbol])
+        precos = list(self.historico_precos[symbol])
         volumes = list(self.historico_volumes[symbol])
         analise = calcular_confluencia(precos, volumes if volumes else None)
 
@@ -93,7 +93,7 @@ class Analyzer:
                 return {'acao': 'AGUARDAR', 'motivo': f'Máx posições ({MAX_POSICOES})', 'analise': analise}
 
             if not self.trader.saldo_acima_minimo():
-                return {'acao': 'AGUARDAR', 'motivo': 'Saldo abaixo do mínimo de segurança', 'analise': analise}
+                return {'acao': 'AGUARDAR', 'motivo': 'Saldo abaixo do mínimo', 'analise': analise}
 
             if analise['sinal'] == 'COMPRA' and analise['pontos_compra'] >= MIN_CONFLUENCIA:
                 return {
@@ -111,8 +111,6 @@ class Analyzer:
     def _log_analise(self, symbol, preco, a):
         print(f"\n📊 {symbol} @ ${preco:.4f} | Tendência: {a['tendencia_maior']}")
         print(f"   RSI: {a['rsi']} | MACD hist: {a['macd_hist']:.6f}")
-        print(f"   EMA {EMA_FAST}/{EMA_SLOW}/{EMA_TREND}: {a['ema_fast']:.2f}/{a['ema_slow']:.2f}/{a['ema_trend']:.2f}")
-        print(f"   Bollinger %B: {a['bb_pct']} | Volume: {a['volume_ratio']}x {'✅' if a['volume_ok'] else '⚪'}")
         print(f"   🎯 C:{a['pontos_compra']}/5 | V:{a['pontos_venda']}/5 | Sinal: {a['sinal']}")
 
     def monitorar_todos(self):
@@ -129,18 +127,9 @@ class Analyzer:
             print(f"\n{'='*45}")
             if self.cooldown[par] > 0:
                 self.cooldown[par] -= 1
-                print(f"⏸️  {par} cooldown ({self.cooldown[par]} restantes)")
-                resultados.append((par, {'acao': 'AGUARDAR', 'motivo': f'Cooldown'}))
+                print(f"⏸️ {par} cooldown ({self.cooldown[par]} restantes)")
+                resultados.append((par, {'acao': 'AGUARDAR', 'motivo': 'Cooldown'}))
                 time.sleep(0.5)
                 continue
 
-            print(f"🔍 Analisando {par}...")
-            preco = self.trader.get_preco(par)
-            analise = self.analisar(par, preco_atual=preco) if preco else {'acao': 'AGUARDAR', 'motivo': 'Sem preço'}
-            resultados.append((par, analise))
-            time.sleep(DELAY_ENTRE_PARES)
-
-        return resultados
-
-
-print("✅ Analyzer carregado! (Sistema percentual)")
+            print
