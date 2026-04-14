@@ -11,7 +11,7 @@ services:
       - key: BINANCE_SECRET_KEY
         sync: false
       - key: MODO_TESTE
-        value: "True"
+        value: "False"
       - key: SALDO_INICIAL
         value: "15.0"
       - key: PERCENTUAL_POR_OPERACAO
