@@ -1,21 +1,17 @@
-# database.py
 """
 Módulo de Banco de Dados SQLite
-Armazena trades, saldos e indicadores
 """
 import sqlite3
-import json
 from datetime import datetime
 import os
 
 DB_PATH = os.getenv("DB_PATH", "trading_bot.db")
 
+
 def init_db():
-    """Inicializa as tabelas do banco de dados"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Tabela de trades
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +27,6 @@ def init_db():
         )
     ''')
     
-    # Tabela de saldos
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS saldos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +35,6 @@ def init_db():
         )
     ''')
     
-    # Tabela de indicadores (para análise posterior)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS indicadores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +47,6 @@ def init_db():
         )
     ''')
     
-    # Tabela de estatísticas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS estatisticas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +65,6 @@ def init_db():
 
 
 def salvar_trade(symbol, preco_compra, preco_venda, quantidade, motivo=""):
-    """Salva um trade concluído"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -82,10 +74,9 @@ def salvar_trade(symbol, preco_compra, preco_venda, quantidade, motivo=""):
     cursor.execute('''
         INSERT INTO trades (symbol, preco_compra, preco_venda, quantidade, lucro, lucro_pct, data_compra, data_venda, motivo)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (symbol, preco_compra, preco_venda, quantidade, lucro, lucro_pct, 
+    ''', (symbol, preco_compra, preco_venda, quantidade, lucro, lucro_pct,
           datetime.now(), datetime.now(), motivo))
     
-    # Atualizar estatísticas
     cursor.execute('SELECT * FROM estatisticas ORDER BY id DESC LIMIT 1')
     stats = cursor.fetchone()
     
@@ -102,25 +93,22 @@ def salvar_trade(symbol, preco_compra, preco_venda, quantidade, motivo=""):
             SET total_trades = ?, trades_ganhos = ?, trades_perdidos = ?, 
                 lucro_total = ?, maior_lucro = ?, maior_perda = ?, updated_at = ?
             WHERE id = ?
-        ''', (total_trades, trades_ganhos, trades_perdidos, lucro_total, 
+        ''', (total_trades, trades_ganhos, trades_perdidos, lucro_total,
               maior_lucro, maior_perda, datetime.now(), stats[0]))
     else:
         cursor.execute('''
             INSERT INTO estatisticas (total_trades, trades_ganhos, trades_perdidos, 
                                      lucro_total, maior_lucro, maior_perda)
             VALUES (1, ?, ?, ?, ?, ?)
-        ''', (1 if lucro > 0 else 0, 1 if lucro < 0 else 0, lucro, 
+        ''', (1 if lucro > 0 else 0, 1 if lucro < 0 else 0, lucro,
               lucro if lucro > 0 else 0, lucro if lucro < 0 else 0))
     
     conn.commit()
     conn.close()
-    
-    print(f"📝 Trade salvo: {symbol} | Lucro: ${lucro:.2f} ({lucro_pct:+.2f}%)")
     return True
 
 
 def salvar_saldo(saldo):
-    """Salva o saldo atual no histórico"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('INSERT INTO saldos (saldo) VALUES (?)', (saldo,))
@@ -129,7 +117,6 @@ def salvar_saldo(saldo):
 
 
 def salvar_indicador(symbol, rsi, ema_fast, ema_slow, sinal):
-    """Salva indicadores para análise posterior"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -141,14 +128,12 @@ def salvar_indicador(symbol, rsi, ema_fast, ema_slow, sinal):
 
 
 def get_estatisticas():
-    """Retorna estatísticas do bot"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     cursor.execute('SELECT * FROM estatisticas ORDER BY id DESC LIMIT 1')
     stats = cursor.fetchone()
     
-    # Trades recentes
     cursor.execute('''
         SELECT symbol, preco_compra, preco_venda, lucro, lucro_pct, data_venda, motivo
         FROM trades ORDER BY id DESC LIMIT 10
@@ -191,6 +176,5 @@ def get_estatisticas():
         }
 
 
-# Inicializar banco ao importar
 init_db()
-print("✅ Módulo Database carregado com sucesso!")
+print("✅ Módulo Database carregado!")
