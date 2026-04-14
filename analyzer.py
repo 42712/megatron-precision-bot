@@ -27,7 +27,7 @@ class Analyzer:
         if lucro < 0:
             self.perda_diaria += abs(lucro)
             limite = SALDO_INICIAL * MAX_PERDA_DIARIA_PCT
-            pct = (self.perda_diaria / limite) * 100 if limite > 0 else 0
+            pct = (self.perda_diaria / limite) * 100
             print(f"   📊 Perda diária: ${self.perda_diaria:.2f} / ${limite:.2f} ({pct:.0f}%)")
             if self.perda_diaria >= limite:
                 self.bot_pausado = True
@@ -58,11 +58,7 @@ class Analyzer:
             return {'acao': 'AGUARDAR', 'motivo': f"Coletando dados ({analise['faltam_dados']} ciclos)", 'analise': analise}
 
         self._log_analise(symbol, preco_atual, analise)
-        
-        try:
-            salvar_indicador(symbol, analise['rsi'], analise['ema_fast'], analise['ema_slow'], analise['sinal'])
-        except Exception as e:
-            print(f"⚠️ Erro ao salvar indicador: {e}")
+        salvar_indicador(symbol, analise['rsi'], analise['ema_fast'], analise['ema_slow'], analise['sinal'])
 
         tem_posicao = symbol in self.trader.get_posicoes()
 
@@ -102,7 +98,7 @@ class Analyzer:
             if analise['sinal'] == 'COMPRA' and analise['pontos_compra'] >= MIN_CONFLUENCIA:
                 return {
                     'acao': 'COMPRA',
-                    'motivo': f"🚀 Confluência ({analise['pontos_compra']}/5): " + " | ".join(analise.get('detalhes_compra', [])),
+                    'motivo': f"🚀 Confluência ({analise['pontos_compra']}/5): " + " | ".join(analise['detalhes_compra']),
                     'analise': analise
                 }
 
@@ -113,9 +109,9 @@ class Analyzer:
         }
 
     def _log_analise(self, symbol, preco, a):
-        print(f"\n📊 {symbol} @ ${preco:.4f} | Tendência: {a.get('tendencia_maior', 'N/A')}")
-        print(f"   RSI: {a.get('rsi', 'N/A')} | MACD hist: {a.get('macd_hist', 0):.6f}")
-        print(f"   🎯 C:{a.get('pontos_compra', 0)}/5 | V:{a.get('pontos_venda', 0)}/5 | Sinal: {a.get('sinal', 'AGUARDAR')}")
+        print(f"\n📊 {symbol} @ ${preco:.4f} | Tendência: {a['tendencia_maior']}")
+        print(f"   RSI: {a['rsi']} | MACD hist: {a['macd_hist']:.6f}")
+        print(f"   🎯 C:{a['pontos_compra']}/5 | V:{a['pontos_venda']}/5 | Sinal: {a['sinal']}")
 
     def monitorar_todos(self):
         resultados = []
@@ -138,10 +134,7 @@ class Analyzer:
 
             print(f"🔍 Analisando {par}...")
             preco = self.trader.get_preco(par)
-            if preco:
-                analise = self.analisar(par, preco_atual=preco)
-            else:
-                analise = {'acao': 'AGUARDAR', 'motivo': 'Sem preço'}
+            analise = self.analisar(par, preco_atual=preco) if preco else {'acao': 'AGUARDAR', 'motivo': 'Sem preço'}
             resultados.append((par, analise))
             time.sleep(DELAY_ENTRE_PARES)
 
